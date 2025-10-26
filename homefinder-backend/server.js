@@ -15,7 +15,7 @@ const fileupload = require('express-fileupload');
 const path = require('path');
 
 // Load environment variables
-const configPath = path.resolve(__dirname, 'config', 'config.env');
+const configPath = path.resolve(__dirname, 'config', process.env.NODE_ENV === 'production' ? 'config.production.env' : 'config.env');
 dotenv.config({ path: configPath });
 
 // Set default NODE_ENV if not set
@@ -39,11 +39,27 @@ const Message = require('./models/Message');
 // Initialize app
 const app = express();
 
+// Function to get allowed origins from environment variables
+const getAllowedOrigins = () => {
+  const origins = [
+    'http://localhost:5173',
+    'https://homefinder-two.vercel.app',
+    'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'
+  ];
+  
+  // Add CLIENT_URL if it's set
+  if (process.env.CLIENT_URL) {
+    origins.push(process.env.CLIENT_URL);
+  }
+  
+  return origins;
+};
+
 // Socket.io setup
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: getAllowedOrigins(),
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -70,7 +86,7 @@ app.use(fileupload({
 
 // Enable CORS
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: getAllowedOrigins(),
   credentials: true
 }));
 
@@ -79,7 +95,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Add specific CORS headers for static files
 app.use('/uploads', cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: getAllowedOrigins(),
   credentials: true
 }));
 
@@ -89,7 +105,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "https://your-domain.com", "data:"],
+      imgSrc: ["'self'", "https://homefinder-two.vercel.app", "https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app", "https://homefinder-w1sf.onrender.com", "data:"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
     },
