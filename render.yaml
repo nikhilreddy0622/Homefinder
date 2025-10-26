@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: homefinder-backend
+    rootDir: homefinder-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4012
+      - key: MONGO_URI
+        sync: false
+      - key: CLIENT_URL
+        value: https://homefinder-two.vercel.app
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        value: rentifyyourhome@gmail.com
+      - key: SMTP_FROM_NAME
+        value: Homefinder
