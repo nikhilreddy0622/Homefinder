@@ -43,7 +43,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app'],
+    origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app', 'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -70,7 +70,7 @@ app.use(fileupload({
 
 // Enable CORS
 app.use(cors({
-  origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app'],
+  origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app', 'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'],
   credentials: true
 }));
 
@@ -79,7 +79,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Add specific CORS headers for static files
 app.use('/uploads', cors({
-  origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app'],
+  origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app', 'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'],
   credentials: true
 }));
 
@@ -89,7 +89,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "https://homefinder-two.vercel.app", "data:"],
+      imgSrc: ["'self'", "https://homefinder-two.vercel.app", "https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app", "data:"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
     },

@@ -14,7 +14,7 @@ services:
       - key: MONGO_URI
         sync: false
       - key: CLIENT_URL
-        value: https://homefinder-two.vercel.app
+        value: https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app
       - key: JWT_SECRET
         sync: false
       - key: JWT_EXPIRE
