@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Homefinder - Health Check</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Homefinder Health Check</h1>
+        <div class="status success">✅ Application is running</div>
+        <p>Frontend: <span id="frontend-status">Checking...</span></p>
+        <p>Backend: <span id="backend-status">Checking...</span></p>
+        <button onclick="checkHealth()">Refresh Status</button>
+    </div>
+
+    <script>
+        async function checkHealth() {
+            try {
+                // Check frontend
+                document.getElementById('frontend-status').textContent = '✅ Online';
+                
+                // Check backend
+                const response = await fetch('/api/v1/health');
+                if (response.ok) {
+                    document.getElementById('backend-status').textContent = '✅ Online';
+                } else {
+                    document.getElementById('backend-status').textContent = '❌ Offline';
+                }
+            } catch (error) {
+                document.getElementById('backend-status').textContent = '❌ Offline';
+            }
+        }
+        
+        // Check health on page load
+        window.onload = checkHealth;
+    </script>
+</body>
+</html>

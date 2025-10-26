@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>New Booking Request</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .property-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            background-color: #f9f9f9;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #777;
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .details-table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .details-table td:first-child {
+            font-weight: bold;
+            width: 30%;
+        }
+        .info {
+            color: #007bff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Homefinder</h1>
+        <h2>New Booking Request</h2>
+    </div>
+    
+    <div class="content">
+        <p>Hello {{userName}},</p>
+        
+        <p class="info">You have received a new booking request for your property <strong>{{propertyTitle}}</strong>!</p>
+        
+        <div class="property-card">
+            <h3>{{propertyTitle}}</h3>
+            <p>{{propertyLocation}}</p>
+        </div>
+        
+        <table class="details-table">
+            <tr>
+                <td>Booking ID:</td>
+                <td>{{bookingId}}</td>
+            </tr>
+            <tr>
+                <td>Tenant Name:</td>
+                <td>{{tenantName}}</td>
+            </tr>
+            <tr>
+                <td>Tenant Email:</td>
+                <td>{{tenantEmail}}</td>
+            </tr>
+            <tr>
+                <td>Start Date:</td>
+                <td>{{startDate}}</td>
+            </tr>
+            <tr>
+                <td>End Date:</td>
+                <td>{{endDate}}</td>
+            </tr>
+            <tr>
+                <td>Total Price:</td>
+                <td>{{totalPrice}}</td>
+            </tr>
+            <tr>
+                <td>Status:</td>
+                <td class="info">{{status}}</td>
+            </tr>
+        </table>
+        
+        <p>You can view the booking details by clicking the button below:</p>
+        
+        <div style="text-align: center;">
+            <a href="{{bookingUrl}}" class="button">View Booking</a>
+        </div>
+        
+        <p>Please contact the tenant at {{tenantEmail}} to confirm the booking.</p>
+        
+        <p>Thank you for using Homefinder!</p>
+    </div>
+    
+    <div class="footer">
+        <p>&copy; 2023 Homefinder. All rights reserved.</p>
+        <p>This is an automated message, please do not reply to this email.</p>
+    </div>
+</body>
+</html>
