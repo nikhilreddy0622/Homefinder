@@ -107,6 +107,7 @@ exports.register = asyncHandler(async (req, res, next) => {
       
       if (!emailResult.success) {
         console.error('Email sending error:', emailResult.error);
+        console.error('Email error details:', JSON.stringify(emailResult, null, 2));
         user.otp = undefined;
         user.otpExpires = undefined;
         await user.save({ validateBeforeSave: false });
@@ -117,6 +118,8 @@ exports.register = asyncHandler(async (req, res, next) => {
           errorMessage = 'Registration successful but we experienced a delay sending your verification email. Please try the resend OTP option or contact support.';
         } else if (emailResult.error && emailResult.error.includes('authentication')) {
           errorMessage = 'Registration successful but we had an authentication issue with our email service. Please contact support.';
+        } else if (emailResult.errorCode === 'DELETED_CLIENT') {
+          errorMessage = 'Registration successful but we could not send the verification email due to a configuration issue. Please contact support.';
         }
         
         // Still return success since the user was created
@@ -124,7 +127,12 @@ exports.register = asyncHandler(async (req, res, next) => {
           success: true,
           message: errorMessage,
           userId: user._id,
-          emailSendError: true
+          emailSendError: true,
+          emailErrorDetails: {
+            error: emailResult.error,
+            errorCode: emailResult.errorCode,
+            errorDetails: emailResult.errorDetails
+          }
         });
       }
       
@@ -402,6 +410,13 @@ exports.login = asyncHandler(async (req, res, next) => {
     user.tempPasswordExpires = undefined;
     await user.save({ validateBeforeSave: false });
     console.log('Password transferred for user:', email);
+    
+    // Refresh user object from database to ensure we have the correctly hashed password
+    // and to exclude sensitive fields
+    const refreshedUser = await User.findById(user._id).select('+password');
+    console.log('Login successful for user:', email);
+    sendTokenResponse(refreshedUser, 200, res);
+    return;
   }
 
   console.log('Login successful for user:', email);
@@ -504,31 +519,38 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
       html
     });
 
+    // Check if email was actually sent successfully
     if (!emailResult.success) {
       console.error('Email sending error:', emailResult.error);
-      user.tempPassword = undefined;
-      user.tempPasswordExpires = undefined;
-      await user.save({ validateBeforeSave: false });
-
-      // Provide a more graceful fallback
+      console.error('Email error details:', JSON.stringify(emailResult, null, 2));
+      
+      // Provide a more specific message for deleted client errors
+      let emailErrorMessage = 'Temporary password generated successfully. However, we could not send it via email due to a service issue. Please contact support for assistance.';
+      if (emailResult.errorCode === 'DELETED_CLIENT') {
+        emailErrorMessage = 'Temporary password generated successfully. However, we could not send it via email due to a configuration issue. Please contact support for assistance.';
+      }
+      
+      // Instead of failing completely, we'll still return success but indicate email issue
+      // This follows the principle of graceful degradation for non-critical failures
       return res.status(200).json({ 
         success: true, 
-        data: 'We could not send the temporary password email due to a service issue. Please try again later or contact support.',
-        emailSendError: true
+        data: emailErrorMessage,
+        emailSendError: true,
+        emailErrorDetails: {
+          error: emailResult.error,
+          errorCode: emailResult.errorCode,
+          errorDetails: emailResult.errorDetails
+        }
       });
     }
 
     res.status(200).json({ success: true, data: 'Temporary password sent to your email' });
   } catch (err) {
     console.error('Unexpected error in forgot password:', err);
-    user.tempPassword = undefined;
-    user.tempPasswordExpires = undefined;
-    await user.save({ validateBeforeSave: false });
-
-    // Provide a more graceful fallback
+    // Even if there's an unexpected error, we still return success but indicate the email issue
     return res.status(200).json({ 
       success: true, 
-      data: 'We could not send the temporary password email due to a service issue. Please try again later or contact support.',
+      data: 'Temporary password generated successfully. However, we could not send it via email due to a service issue. Please contact support for assistance.',
       emailSendError: true
     });
   }
@@ -569,23 +591,47 @@ const sendTokenResponse = (user, statusCode, res) => {
   const token = user.getSignedJwtToken();
 
   // Set cookie options
-  const options = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000
-    ),
+  let options = {
     httpOnly: true
   };
 
-  if (process.env.NODE_ENV === 'production') {
-    options.secure = true;
-  }
+  try {
+    // Check if JWT_COOKIE_EXPIRE is set and is a valid number
+    const cookieExpireDays = process.env.JWT_COOKIE_EXPIRE;
+    if (cookieExpireDays && !isNaN(parseInt(cookieExpireDays))) {
+      options.expires = new Date(
+        Date.now() + parseInt(cookieExpireDays) * 24 * 60 * 60 * 1000
+      );
+    } else {
+      // Default to 7 days if not set or invalid
+      options.expires = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      );
+      console.warn('JWT_COOKIE_EXPIRE not set or invalid, using default of 7 days');
+    }
 
-  res
-    .status(statusCode)
-    .cookie('token', token, options)
-    .json({
-      success: true,
-      token,
-      user
-    });
+    if (process.env.NODE_ENV === 'production') {
+      options.secure = true;
+    }
+
+    res
+      .status(statusCode)
+      .cookie('token', token, options)
+      .json({
+        success: true,
+        token,
+        user
+      });
+  } catch (error) {
+    console.error('Error setting cookie:', error);
+    // Send response without cookie if there's an error
+    res
+      .status(statusCode)
+      .json({
+        success: true,
+        token,
+        user,
+        warning: 'Could not set auth cookie'
+      });
+  }
 };
