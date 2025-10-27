@@ -353,7 +353,7 @@ exports.deleteProperty = asyncHandler(async (req, res, next) => {
   // Delete images from Cloudinary
   await deleteCloudinaryImages(property.images);
 
-  await property.remove();
+  await property.deleteOne();
 
   res.status(200).json({
     success: true,
