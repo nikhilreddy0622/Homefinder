@@ -21,7 +21,7 @@ const loadTemplate = (templateName, variables = {}) => {
   }
 };
 
-// Send email with multiple fallback strategies
+// Send email with proper configuration based on environment variables
 const sendEmail = async (options) => {
   try {
     console.log('=== EMAIL SENDING ATTEMPT ===');
@@ -47,71 +47,30 @@ const sendEmail = async (options) => {
       return await sendEmailWithMailgun(options);
     }
     
-    // Create transporter with environment-based configuration
-    let transporterConfig = {};
-    
-    // Check if we're using SMTP or Gmail
-    if (process.env.SMTP_HOST && process.env.SMTP_PORT) {
-      // Custom SMTP configuration
-      transporterConfig = {
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT || 587,
-        secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
-        },
-        tls: {
-          rejectUnauthorized: false // Set to true in production with proper certificates
-        }
-      };
-    } else {
-      // Default to Gmail configuration
-      transporterConfig = {
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: process.env.EMAIL_PORT || 587,
-        secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
-        auth: {
-          user: process.env.EMAIL_USER || 'rentifyyourhome@gmail.com',
-          pass: process.env.EMAIL_PASS || 'qmnmauzjbwmbfyjc'
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
-      };
-    }
-
-    // Add connection timeout and other configurations
-    transporterConfig.connectionTimeout = 10000; // 10 seconds
-    transporterConfig.greetingTimeout = 10000; // 10 seconds
-    transporterConfig.socketTimeout = 15000; // 15 seconds
-    
-    // Add pooling for better connection management
-    transporterConfig.pool = true;
-    transporterConfig.maxConnections = 5;
-    transporterConfig.maxMessages = 100;
-    
-    const transporter = nodemailer.createTransport(transporterConfig);
+    // Create transporter - use Gmail service configuration (similar to working laundry app)
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.SMTP_EMAIL || process.env.EMAIL_USER || 'rentifyyourhome@gmail.com',
+        pass: process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || 'qmnmauzjbwmbfyjc'
+      }
+    });
 
     // Define email options
     const message = {
-      from: process.env.FROM_EMAIL || `Homefinder <rentifyyourhome@gmail.com>`,
+      from: process.env.SMTP_FROM_EMAIL || process.env.FROM_EMAIL || 'Homefinder <rentifyyourhome@gmail.com>',
       to: options.email,
       subject: options.subject,
       html: options.html
     };
 
     // Send email with timeout
-    console.log('Attempting to send email with transporter config:', {
-      host: transporterConfig.host,
-      port: transporterConfig.port,
-      secure: transporterConfig.secure
-    });
+    console.log('Attempting to send email with Gmail service configuration');
     
     const info = await Promise.race([
       transporter.sendMail(message),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Email sending timed out')), 20000)
+        setTimeout(() => reject(new Error('Email sending timed out')), 15000)
       )
     ]);
     
