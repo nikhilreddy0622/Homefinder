@@ -93,7 +93,8 @@ app.use(cors({
 // Set static folder BEFORE security middleware to avoid conflicts
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Add specific CORS headers for static files
+// Explicitly serve uploads directory with proper CORS headers
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 app.use('/uploads', cors({
   origin: getAllowedOrigins(),
   credentials: true
@@ -105,7 +106,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "https://homefinder-two.vercel.app", "https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app", "https://homefinder-w1sf.onrender.com", "data:"],
+      imgSrc: ["'self'", "https://homefinder-two.vercel.app", "https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app", "https://homefinder-w1sf.onrender.com", "https://homefinder-backend-xopc.onrender.com", "data:"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
     },
