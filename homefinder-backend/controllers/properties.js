@@ -6,6 +6,7 @@ const { requirePropertyOwnership } = require('../middleware/propertyAuth');
 const path = require('path');
 const fs = require('fs');
 const { handleImageUploads, deletePropertyImages } = require('../utils/properties/imageHandler');
+const { handleImageUploads: handleCloudinaryUploads, deletePropertyImages: deleteCloudinaryImages } = require('../utils/properties/cloudinaryHandler');
 const { getPropertiesWithAvailability, checkPropertyAvailability } = require('../utils/properties/availability');
 
 // Utility function to correct image URLs
@@ -20,7 +21,15 @@ const correctImageUrls = (property) => {
           const correctUrl = process.env.NODE_ENV === 'production' 
             ? 'https://homefinder-backend-xopc.onrender.com' 
             : 'http://localhost:4012';
-          return imageUrl.replace('localhost:4011', `${correctUrl.replace('http://', '').replace('https://', '')}`);
+          return imageUrl.replace('localhost:4011', correctUrl.replace('http://', '').replace('https://', ''));
+        }
+        // Handle case where there's localhost:4012 (old URLs)
+        if (imageUrl.includes('localhost:4012')) {
+          // In production, use the Render URL; in development, keep localhost:4012
+          if (process.env.NODE_ENV === 'production') {
+            const correctUrl = 'https://homefinder-backend-xopc.onrender.com';
+            return imageUrl.replace('http://localhost:4012', correctUrl);
+          }
         }
         // Handle case where there's no port specified or wrong port
         const localhostRegex = /http:\/\/localhost(:\d+)?\//;
@@ -161,14 +170,23 @@ exports.createProperty = asyncHandler(async (req, res, next) => {
   // Add user to req.body
   req.body.owner = req.user.id;
 
-  // Handle file uploads
-  if (req.files && req.files.images) {
-    try {
-      console.time('Image Upload Processing');
-      req.body.images = await handleImageUploads(req);
-      console.timeEnd('Image Upload Processing');
-    } catch (error) {
-      return next(error);
+  // Handle images - use images from request body
+  if (req.body.images && Array.isArray(req.body.images) && req.body.images.length > 0) {
+    // Filter out any invalid URLs and ensure they are Cloudinary URLs
+    req.body.images = req.body.images.filter(image => {
+      // Check if it's a valid URL
+      try {
+        const url = new URL(image);
+        // Ensure it's a Cloudinary URL
+        return url.hostname.includes('res.cloudinary.com');
+      } catch (e) {
+        console.warn('Invalid image URL filtered out:', image);
+        return false;
+      }
+    });
+    
+    if (req.body.images.length === 0) {
+      return next(new ErrorResponse('Please upload at least one valid image', 400));
     }
   } else {
     return next(new ErrorResponse('Please upload at least one image', 400));
@@ -212,7 +230,13 @@ exports.createProperty = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/v1/properties/:id
 // @access  Private
 exports.updateProperty = asyncHandler(async (req, res, next) => {
+  console.log('=== UPDATE PROPERTY REQUEST ===');
+  console.log('Property ID:', req.params.id);
+  console.log('User ID:', req.user.id);
+  console.log('Request body:', req.body);
+  
   let property = await Property.findById(req.params.id);
+  console.log('Found property:', property ? property._id : 'Not found');
 
   if (!property) {
     return next(
@@ -230,32 +254,40 @@ exports.updateProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Handle file uploads
+  // Handle images - use images from request body
   let images = [];
   
-  // If existing images are provided, use them in the order they were sent
-  if (req.body.existingImages) {
-    if (Array.isArray(req.body.existingImages)) {
-      images = [...req.body.existingImages];
-    } else {
-      images = [req.body.existingImages];
-    }
+  // If images are provided in request body, use them
+  if (req.body.images && Array.isArray(req.body.images)) {
+    console.log('Images provided in request body:', req.body.images);
+    // Filter out any invalid URLs and ensure they are Cloudinary URLs
+    images = req.body.images.filter(image => {
+      // Check if it's a valid URL
+      try {
+        const url = new URL(image);
+        // Ensure it's a Cloudinary URL
+        return url.hostname.includes('res.cloudinary.com');
+      } catch (e) {
+        console.warn('Invalid image URL filtered out:', image);
+        return false;
+      }
+    });
   } else if (property.images) {
-    // If no existing images provided but property has images, keep them in original order
-    images = [...property.images];
+    // If no images provided but property has images, keep them in original order
+    console.log('Using existing property images:', property.images);
+    // Filter existing property images to ensure they are valid Cloudinary URLs
+    images = property.images.filter(image => {
+      try {
+        const url = new URL(image);
+        return url.hostname.includes('res.cloudinary.com');
+      } catch (e) {
+        console.warn('Invalid property image URL filtered out:', image);
+        return false;
+      }
+    });
   }
   
-  // Handle new file uploads
-  if (req.files && req.files.images) {
-    try {
-      console.time('Image Upload Processing');
-      // Pass the current images array to maintain order
-      images = await handleImageUploads(req, images);
-      console.timeEnd('Image Upload Processing');
-    } catch (error) {
-      return next(error);
-    }
-  }
+  console.log('Processed images array:', images);
   
   // Update the images in req.body
   req.body.images = images;
@@ -277,6 +309,8 @@ exports.updateProperty = asyncHandler(async (req, res, next) => {
   if (req.body.bedrooms) req.body.bedrooms = Number(req.body.bedrooms);
   if (req.body.bathrooms) req.body.bathrooms = Number(req.body.bathrooms);
   if (req.body.area) req.body.area = Number(req.body.area);
+
+  console.log('Final request body for update:', req.body);
 
   console.time('Property Update');
   property = await Property.findByIdAndUpdate(req.params.id, req.body, {
@@ -316,8 +350,8 @@ exports.deleteProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Delete images from file system
-  await deletePropertyImages(property.images);
+  // Delete images from Cloudinary
+  await deleteCloudinaryImages(property.images);
 
   await property.remove();
 
