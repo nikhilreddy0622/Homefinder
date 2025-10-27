@@ -372,7 +372,34 @@ const EditProperty = () => {
       // Combine existing images with newly uploaded images
       const allImageUrls = [...existingImages, ...uploadedImageUrls];
       
-      // Prepare property data for submission
+      // Reorder images to make the selected cover image the first one
+      if (allImageUrls.length > 1 && coverImageIndex < allImageUrls.length) {
+        // Move the selected cover image to the first position
+        const coverImage = allImageUrls[coverImageIndex];
+        const remainingImages = allImageUrls.filter((_, index) => index !== coverImageIndex);
+        const reorderedImages = [coverImage, ...remainingImages];
+        
+        // Update the property data with reordered images
+        const propertyData = {
+          ...formData,
+          price: Number(formData.price),
+          deposit: Number(formData.deposit),
+          bedrooms: Number(formData.bedrooms),
+          bathrooms: Number(formData.bathrooms),
+          area: Number(formData.area),
+          amenities: amenities,
+          images: reorderedImages
+        };
+        
+        // Submit to API
+        const response = await api.put(`/properties/${id}`, propertyData);
+        
+        toast.success('Property updated successfully!');
+        navigate('/my-properties');
+        return;
+      }
+      
+      // If no reordering is needed, proceed with original order
       const propertyData = {
         ...formData,
         price: Number(formData.price),
