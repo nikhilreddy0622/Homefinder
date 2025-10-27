@@ -49,7 +49,7 @@ exports.handleImageUploads = async (req, existingImages = []) => {
         // Store complete URL instead of relative path
         // Use the proper base URL for the deployed environment
         const baseUrl = process.env.NODE_ENV === 'production' 
-          ? 'https://homefinder-backend-xopc.onrender.com' 
+          ? (process.env.BACKEND_URL || 'https://homefinder-backend-xopc.onrender.com')
           : `http://localhost:${process.env.PORT || 4012}`;
         return `${baseUrl}/uploads/${fileName}`;
       } catch (err) {
