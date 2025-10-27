@@ -14,6 +14,26 @@ const jwt = require('jsonwebtoken');
 const fileupload = require('express-fileupload');
 const path = require('path');
 
+// Function to get allowed origins from environment variables
+const getAllowedOrigins = () => {
+  const origins = [
+    'http://localhost:5173',
+    'https://homefinder-two.vercel.app',
+    'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'
+  ];
+  
+  // Add CLIENT_URL if it's set
+  if (process.env.CLIENT_URL) {
+    origins.push(process.env.CLIENT_URL);
+  }
+  
+  // Add Vercel URLs
+  origins.push('https://homefinder-git-master-nikhilreddy0622s-projects.vercel.app');
+  origins.push('https://homefinder.vercel.app');
+  
+  return origins;
+};
+
 // Load environment variables
 const configPath = path.resolve(__dirname, 'config', process.env.NODE_ENV === 'production' ? 'config.production.env' : 'config.env');
 dotenv.config({ path: configPath });
@@ -43,7 +63,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app', 'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'],
+    origin: getAllowedOrigins(),
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -240,23 +260,3 @@ const PORT = process.env.PORT || 4012;
 server.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
-
-// Function to get allowed origins from environment variables
-const getAllowedOrigins = () => {
-  const origins = [
-    'http://localhost:5173',
-    'https://homefinder-two.vercel.app',
-    'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'
-  ];
-  
-  // Add CLIENT_URL if it's set
-  if (process.env.CLIENT_URL) {
-    origins.push(process.env.CLIENT_URL);
-  }
-  
-  // Add Vercel URLs
-  origins.push('https://homefinder-git-master-nikhilreddy0622s-projects.vercel.app');
-  origins.push('https://homefinder.vercel.app');
-  
-  return origins;
-};
