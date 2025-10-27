@@ -99,11 +99,34 @@ exports.register = asyncHandler(async (req, res, next) => {
       
       console.log('Email template loaded for:', user.email, 'Template length:', html ? html.length : 0);
 
-      await sendEmail({
+      const emailResult = await sendEmail({
         email: user.email,
         subject: 'Homefinder Email Verification - OTP',
         html
       });
+      
+      if (!emailResult.success) {
+        console.error('Email sending error:', emailResult.error);
+        user.otp = undefined;
+        user.otpExpires = undefined;
+        await user.save({ validateBeforeSave: false });
+
+        // Provide more helpful error message to the user
+        let errorMessage = 'Registration successful but we could not send the verification email. Please try the resend OTP option.';
+        if (emailResult.error && emailResult.error.includes('timeout')) {
+          errorMessage = 'Registration successful but we experienced a delay sending your verification email. Please try the resend OTP option or contact support.';
+        } else if (emailResult.error && emailResult.error.includes('authentication')) {
+          errorMessage = 'Registration successful but we had an authentication issue with our email service. Please contact support.';
+        }
+        
+        // Still return success since the user was created
+        return res.status(201).json({
+          success: true,
+          message: errorMessage,
+          userId: user._id,
+          emailSendError: true
+        });
+      }
       
       console.log('Email sent successfully to:', user.email);
 
@@ -113,26 +136,14 @@ exports.register = asyncHandler(async (req, res, next) => {
         userId: user._id
       });
     } catch (err) {
-      console.error('Email sending error:', err);
-      console.error('Error stack:', err.stack);
+      console.error('Unexpected error during registration:', err);
       user.otp = undefined;
       user.otpExpires = undefined;
       await user.save({ validateBeforeSave: false });
 
-      // Provide more helpful error message to the user
-      let errorMessage = 'Registration successful but we could not send the verification email. Please try the resend OTP option.';
-      if (err.message.includes('timeout')) {
-        errorMessage = 'Registration successful but we experienced a delay sending your verification email. Please try the resend OTP option or contact support.';
-      } else if (err.message.includes('authentication')) {
-        errorMessage = 'Registration successful but we had an authentication issue with our email service. Please contact support.';
-      } else if (err.message.includes('transactional email service')) {
-        errorMessage = 'Registration successful. Please contact support to get your verification OTP as our email service is currently unavailable.';
-      }
-      
-      // Still return success since the user was created
       return res.status(201).json({
         success: true,
-        message: errorMessage,
+        message: 'Registration successful but we could not send the verification email. Please use the resend OTP option.',
         userId: user._id,
         emailSendError: true
       });
@@ -192,11 +203,16 @@ exports.verifyEmailWithOTP = asyncHandler(async (req, res, next) => {
       
       console.log('Email template loaded for:', user.email, 'Template length:', html ? html.length : 0);
 
-      await sendEmail({
+      const emailResult = await sendEmail({
         email: user.email,
         subject: 'Homefinder Email Verification - OTP',
         html
       });
+      
+      if (!emailResult.success) {
+        console.error('Email sending error:', emailResult.error);
+        return next(new ErrorResponse('Failed to send OTP. Please try again.', 500));
+      }
       
       console.log('OTP email sent successfully to:', user.email);
 
@@ -254,11 +270,29 @@ exports.verifyEmailWithOTP = asyncHandler(async (req, res, next) => {
   });
 
   try {
-    await sendEmail({
+    const emailResult = await sendEmail({
       email: user.email,
       subject: 'Homefinder - Temporary Password',
       html
     });
+    
+    if (!emailResult.success) {
+      console.error('Email sending error:', emailResult.error);
+      // Don't fail the verification if email sending fails
+      // But notify the client that email sending failed
+      return res.status(200).json({
+        success: true,
+        message: 'Email verified successfully. We could not send the temporary password email due to a service issue. Please use the forgot password feature or contact support.',
+        token: user.getSignedJwtToken(),
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email
+        },
+        emailSendError: true
+      });
+    }
+    
     console.log('Temporary password email sent to:', user.email);
     
     // Send success response
@@ -273,9 +307,8 @@ exports.verifyEmailWithOTP = asyncHandler(async (req, res, next) => {
       }
     });
   } catch (err) {
-    console.error('Error sending temporary password email:', err);
+    console.error('Unexpected error sending temporary password email:', err);
     // Don't fail the verification if email sending fails
-    // But notify the client that email sending failed
     res.status(200).json({
       success: true,
       message: 'Email verified successfully. We could not send the temporary password email due to a service issue. Please use the forgot password feature or contact support.',
@@ -287,7 +320,6 @@ exports.verifyEmailWithOTP = asyncHandler(async (req, res, next) => {
       },
       emailSendError: true
     });
-    return;
   }
 
   // Send token response to automatically log in the user
@@ -466,15 +498,29 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   });
 
   try {
-    await sendEmail({
+    const emailResult = await sendEmail({
       email: user.email,
       subject: 'Homefinder - Temporary Password',
       html
     });
 
+    if (!emailResult.success) {
+      console.error('Email sending error:', emailResult.error);
+      user.tempPassword = undefined;
+      user.tempPasswordExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      // Provide a more graceful fallback
+      return res.status(200).json({ 
+        success: true, 
+        data: 'We could not send the temporary password email due to a service issue. Please try again later or contact support.',
+        emailSendError: true
+      });
+    }
+
     res.status(200).json({ success: true, data: 'Temporary password sent to your email' });
   } catch (err) {
-    console.error('Forgot password email error:', err);
+    console.error('Unexpected error in forgot password:', err);
     user.tempPassword = undefined;
     user.tempPasswordExpires = undefined;
     await user.save({ validateBeforeSave: false });
