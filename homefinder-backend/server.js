@@ -90,13 +90,12 @@ app.use(fileupload({
 
 // Enable CORS
 app.use(cors({
-  origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app', 'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'],
+  origin: getAllowedOrigins(),
   credentials: true
 }));
 
 // Set static folder BEFORE security middleware to avoid conflicts
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // Add specific CORS headers for static files
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
@@ -151,14 +150,6 @@ app.get('/api/v1/health', (req, res) => {
     port: process.env.PORT || 4012
   });
 });
-
-// Serve frontend static files in production
-if (process.env.NODE_ENV === 'production') {
-  // Handle React routing, return all requests to React app
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '..', 'dist', 'index.html'));
-  });
-}
 
 // Error handler
 app.use(errorHandler);
