@@ -47,10 +47,11 @@ exports.handleImageUploads = async (req, existingImages = []) => {
       try {
         await file.mv(uploadPath);
         // Store complete URL instead of relative path
-        // Use the server's configured port explicitly to avoid issues with req.get('host')
-        const port = process.env.PORT || 4012;
-        // Construct URL with explicit port to ensure consistency
-        return `http://localhost:${port}/uploads/${fileName}`;
+        // Use the proper base URL for the deployed environment
+        const baseUrl = process.env.NODE_ENV === 'production' 
+          ? 'https://homefinder-backend-xopc.onrender.com' 
+          : `http://localhost:${process.env.PORT || 4012}`;
+        return `${baseUrl}/uploads/${fileName}`;
       } catch (err) {
         console.error('File upload error:', err);
         throw new ErrorResponse('Problem with file upload', 500);
