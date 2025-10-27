@@ -18,8 +18,7 @@ const path = require('path');
 const getAllowedOrigins = () => {
   const origins = [
     'http://localhost:5173',
-    'https://homefinder-two.vercel.app',
-    'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'
+    'https://homefinder-kcxw.vercel.app'
   ];
   
   // Add CLIENT_URL if it's set
@@ -110,7 +109,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "https://homefinder-two.vercel.app", "https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app", "https://homefinder-w1sf.onrender.com", "https://homefinder-backend-xopc.onrender.com", "data:"],
+      imgSrc: ["'self'", "https://homefinder-two.vercel.app", "https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app", "https://homefinder-w1sf.onrender.com", "https://homefinder-backend-xopc.onrender.com", "https://homefinder-kcxw.vercel.app", "data:"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
     },
