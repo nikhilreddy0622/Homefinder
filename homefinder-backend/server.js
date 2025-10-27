@@ -39,27 +39,11 @@ const Message = require('./models/Message');
 // Initialize app
 const app = express();
 
-// Function to get allowed origins from environment variables
-const getAllowedOrigins = () => {
-  const origins = [
-    'http://localhost:5173',
-    'https://homefinder-two.vercel.app',
-    'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'
-  ];
-  
-  // Add CLIENT_URL if it's set
-  if (process.env.CLIENT_URL) {
-    origins.push(process.env.CLIENT_URL);
-  }
-  
-  return origins;
-};
-
 // Socket.io setup
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: getAllowedOrigins(),
+    origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app', 'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -86,14 +70,15 @@ app.use(fileupload({
 
 // Enable CORS
 app.use(cors({
-  origin: getAllowedOrigins(),
+  origin: [process.env.CLIENT_URL || 'http://localhost:5173', 'https://homefinder-two.vercel.app', 'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'],
   credentials: true
 }));
 
 // Set static folder BEFORE security middleware to avoid conflicts
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-// Explicitly serve uploads directory with proper CORS headers
+// Add specific CORS headers for static files
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 app.use('/uploads', cors({
   origin: getAllowedOrigins(),
@@ -146,6 +131,14 @@ app.get('/api/v1/health', (req, res) => {
     port: process.env.PORT || 4012
   });
 });
+
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+  // Handle React routing, return all requests to React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, '..', 'dist', 'index.html'));
+  });
+}
 
 // Error handler
 app.use(errorHandler);
@@ -247,3 +240,23 @@ const PORT = process.env.PORT || 4012;
 server.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
+
+// Function to get allowed origins from environment variables
+const getAllowedOrigins = () => {
+  const origins = [
+    'http://localhost:5173',
+    'https://homefinder-two.vercel.app',
+    'https://homefinder-cyavceijq-nikhils-projects-21ec3df7.vercel.app'
+  ];
+  
+  // Add CLIENT_URL if it's set
+  if (process.env.CLIENT_URL) {
+    origins.push(process.env.CLIENT_URL);
+  }
+  
+  // Add Vercel URLs
+  origins.push('https://homefinder-git-master-nikhilreddy0622s-projects.vercel.app');
+  origins.push('https://homefinder.vercel.app');
+  
+  return origins;
+};
