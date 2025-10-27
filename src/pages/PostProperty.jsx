@@ -302,6 +302,14 @@ const PostProperty = () => {
         }
       }
       
+      // Reorder images to make the selected cover image the first one
+      if (uploadedImageUrls.length > 1 && coverImageIndex < uploadedImageUrls.length) {
+        // Move the selected cover image to the first position
+        const coverImage = uploadedImageUrls[coverImageIndex];
+        const remainingImages = uploadedImageUrls.filter((_, index) => index !== coverImageIndex);
+        uploadedImageUrls = [coverImage, ...remainingImages];
+      }
+      
       // Prepare property data for submission
       const propertyData = {
         ...formData,
