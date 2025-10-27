@@ -18,7 +18,15 @@ const correctImageUrls = (property) => {
           const correctUrl = process.env.NODE_ENV === 'production' 
             ? 'https://homefinder-backend-xopc.onrender.com' 
             : 'http://localhost:4012';
-          return imageUrl.replace('localhost:4011', `${correctUrl.replace('http://', '').replace('https://', '')}`);
+          return imageUrl.replace('localhost:4011', correctUrl.replace('http://', '').replace('https://', ''));
+        }
+        // Handle case where there's localhost:4012 (old URLs)
+        if (imageUrl.includes('localhost:4012')) {
+          // In production, use the Render URL; in development, keep localhost:4012
+          if (process.env.NODE_ENV === 'production') {
+            const correctUrl = 'https://homefinder-backend-xopc.onrender.com';
+            return imageUrl.replace('http://localhost:4012', correctUrl);
+          }
         }
         // Handle case where there's no port specified or wrong port
         const localhostRegex = /http:\/\/localhost(:\d+)?\//;
@@ -302,11 +310,15 @@ exports.createBooking = asyncHandler(async (req, res, next) => {
     ownerEmail: owner.email
   });
 
-  await sendEmail({
+  const tenantEmailResult = await sendEmail({
     email: tenant.email,
     subject: 'Homefinder Booking Confirmation',
     html: tenantHtml
   });
+  
+  if (!tenantEmailResult.success) {
+    console.error('Failed to send booking confirmation to tenant:', tenantEmailResult.error);
+  }
 
   // Send email to owner
   const ownerHtml = loadTemplate('bookingOwnerNotification', {
@@ -323,11 +335,15 @@ exports.createBooking = asyncHandler(async (req, res, next) => {
     bookingUrl: `${process.env.CLIENT_URL}/booking/${booking._id}`
   });
 
-  await sendEmail({
+  const ownerEmailResult = await sendEmail({
     email: owner.email,
     subject: 'Homefinder New Booking Request',
     html: ownerHtml
   });
+  
+  if (!ownerEmailResult.success) {
+    console.error('Failed to send booking notification to owner:', ownerEmailResult.error);
+  }
 
   res.status(201).json({
     success: true,
@@ -465,11 +481,15 @@ exports.createDemoBooking = asyncHandler(async (req, res, next) => {
           ownerEmail: owner.email
         });
 
-        await sendEmail({
+        const tenantEmailResult = await sendEmail({
           email: tenant.email,
           subject: 'Homefinder Booking Confirmation (Demo)',
           html: tenantHtml
         });
+        
+        if (!tenantEmailResult.success) {
+          console.error('Failed to send demo booking confirmation to tenant:', tenantEmailResult.error);
+        }
         
         // Send notification email to owner
         const ownerHtml = loadTemplate('bookingOwnerNotification', {
@@ -486,11 +506,16 @@ exports.createDemoBooking = asyncHandler(async (req, res, next) => {
           bookingUrl: `${process.env.CLIENT_URL}/booking/${booking._id}`
         });
 
-        await sendEmail({
+        const ownerEmailResult = await sendEmail({
           email: owner.email,
           subject: 'Homefinder New Booking Request (Demo)',
           html: ownerHtml
         });
+        
+        if (!ownerEmailResult.success) {
+          console.error('Failed to send demo booking notification to owner:', ownerEmailResult.error);
+        }
+
       }
     } catch (emailError) {
       console.error('Failed to send booking confirmation emails:', emailError);
