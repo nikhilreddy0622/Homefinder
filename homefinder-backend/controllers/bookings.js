@@ -10,9 +10,26 @@ const { preventOwnerBooking } = require('../middleware/propertyAuth');
 const correctImageUrls = (property) => {
   if (property && property.images && Array.isArray(property.images)) {
     return property.images.map(imageUrl => {
-      // If the image URL contains localhost:4011, replace it with localhost:4012
-      if (imageUrl && typeof imageUrl === 'string' && imageUrl.includes('localhost:4011')) {
-        return imageUrl.replace('localhost:4011', 'localhost:4012');
+      // If the image URL contains localhost with wrong port, replace it with correct configuration
+      if (imageUrl && typeof imageUrl === 'string') {
+        // Handle various incorrect port scenarios
+        if (imageUrl.includes('localhost:4011')) {
+          // In production, use the Render URL; in development, use localhost:4012
+          const correctUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://homefinder-backend-xopc.onrender.com' 
+            : 'http://localhost:4012';
+          return imageUrl.replace('localhost:4011', `${correctUrl.replace('http://', '').replace('https://', '')}`);
+        }
+        // Handle case where there's no port specified or wrong port
+        const localhostRegex = /http:\/\/localhost(:\d+)?\//;
+        if (localhostRegex.test(imageUrl)) {
+          // In production, use the Render URL; in development, use localhost:4012
+          const correctUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://homefinder-backend-xopc.onrender.com' 
+            : 'http://localhost:4012';
+          // Replace with correct base URL
+          return imageUrl.replace(localhostRegex, `${correctUrl}/`);
+        }
       }
       return imageUrl;
     });
