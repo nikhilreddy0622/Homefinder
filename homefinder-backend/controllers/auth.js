@@ -122,11 +122,14 @@ exports.register = asyncHandler(async (req, res, next) => {
       // Provide more helpful error message to the user
       let errorMessage = 'Registration successful but we could not send the verification email. Please try the resend OTP option.';
       if (err.message.includes('timeout')) {
-        errorMessage = 'Registration successful but we experienced a delay sending your verification email. Please try the resend OTP option.';
+        errorMessage = 'Registration successful but we experienced a delay sending your verification email. Please try the resend OTP option or contact support.';
       } else if (err.message.includes('authentication')) {
         errorMessage = 'Registration successful but we had an authentication issue with our email service. Please contact support.';
+      } else if (err.message.includes('transactional email service')) {
+        errorMessage = 'Registration successful. Please contact support to get your verification OTP as our email service is currently unavailable.';
       }
       
+      // Still return success since the user was created
       return res.status(201).json({
         success: true,
         message: errorMessage,
@@ -257,13 +260,25 @@ exports.verifyEmailWithOTP = asyncHandler(async (req, res, next) => {
       html
     });
     console.log('Temporary password email sent to:', user.email);
+    
+    // Send success response
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully. Temporary password has been sent to your email.',
+      token: user.getSignedJwtToken(),
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
   } catch (err) {
     console.error('Error sending temporary password email:', err);
     // Don't fail the verification if email sending fails
     // But notify the client that email sending failed
     res.status(200).json({
       success: true,
-      message: 'Email verified successfully. We could not send the temporary password email. Please use the forgot password feature if needed.',
+      message: 'Email verified successfully. We could not send the temporary password email due to a service issue. Please use the forgot password feature or contact support.',
       token: user.getSignedJwtToken(),
       user: {
         id: user._id,
@@ -459,7 +474,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
 
     res.status(200).json({ success: true, data: 'Temporary password sent to your email' });
   } catch (err) {
-    console.error(err);
+    console.error('Forgot password email error:', err);
     user.tempPassword = undefined;
     user.tempPasswordExpires = undefined;
     await user.save({ validateBeforeSave: false });
@@ -467,7 +482,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     // Provide a more graceful fallback
     return res.status(200).json({ 
       success: true, 
-      data: 'We could not send the temporary password email. Please use the resend option or contact support.',
+      data: 'We could not send the temporary password email due to a service issue. Please try again later or contact support.',
       emailSendError: true
     });
   }
