@@ -218,9 +218,33 @@ const PostProperty = () => {
     }
   };
 
+  const uploadImageToCloudinary = async (imageFile) => {
+    const formData = new FormData();
+    formData.append('file', imageFile);
+    formData.append('upload_preset', 'first_time_upload'); // Your upload preset
+    
+    try {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/dz7mjfzaw/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      if (data.secure_url) {
+        return data.secure_url;
+      } else {
+        throw new Error('Failed to upload image to Cloudinary');
+      }
+    } catch (error) {
+      console.error('Error uploading to Cloudinary:', error);
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate required fields including deposit
     if (selectedAmenities.length === 0) {
       toast.error('Please select at least one amenity');
       return;
@@ -231,75 +255,67 @@ const PostProperty = () => {
       return;
     }
 
+    // Validate that all required fields are filled
+    if (!formData.title || !formData.description || !formData.price || 
+        !formData.deposit || !formData.location || !formData.city || 
+        !formData.propertyType || !formData.bedrooms || !formData.bathrooms || 
+        !formData.area || !formData.furnishing || !formData.availableFrom) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Validate numeric fields
+    const price = Number(formData.price);
+    const deposit = Number(formData.deposit);
+    const bedrooms = Number(formData.bedrooms);
+    const bathrooms = Number(formData.bathrooms);
+    const area = Number(formData.area);
+    
+    if (isNaN(price) || isNaN(deposit) || isNaN(bedrooms) || isNaN(bathrooms) || isNaN(area)) {
+      toast.error('Please enter valid numbers for price, deposit, bedrooms, bathrooms, and area');
+      return;
+    }
+
+    if (price <= 0 || deposit <= 0 || bedrooms <= 0 || bathrooms <= 0 || area <= 0) {
+      toast.error('Price, deposit, bedrooms, bathrooms, and area must be greater than zero');
+      return;
+    }
+
     setLoading(true);
     setUploadProgress(0);
     
     try {
-      // Prepare form data for submission
-      const propertyData = new FormData();
+      // Upload all images to Cloudinary first
+      let uploadedImageUrls = [];
       
-      // Append text fields
-      Object.keys(formData).forEach(key => {
-        if (key === 'price' || key === 'deposit' || key === 'bedrooms' || key === 'bathrooms' || key === 'area') {
-          // Convert numeric fields to numbers
-          const value = formData[key];
-          if (value !== '') {
-            propertyData.append(key, Number(value));
-          }
-        } else {
-          // Append other fields as strings
-          propertyData.append(key, formData[key]);
+      if (images.length > 0) {
+        try {
+          // Upload all images to Cloudinary
+          const uploadPromises = images.map(image => uploadImageToCloudinary(image));
+          uploadedImageUrls = await Promise.all(uploadPromises);
+        } catch (uploadError) {
+          console.error('Error uploading images to Cloudinary:', uploadError);
+          toast.error('Error uploading images. Please try again.');
+          setLoading(false);
+          setUploadProgress(0);
+          return;
         }
-      });
-      
-      // Append amenities (required field)
-      if (selectedAmenities.length > 0) {
-        selectedAmenities.forEach(amenity => {
-          propertyData.append('amenities', amenity);
-        });
-      } else {
-        // Add a default amenity if none selected
-        propertyData.append('amenities', 'Basic');
       }
       
-      // If we have more than one image, reorder so the cover image is first
-      if (images.length > 1) {
-        // Create a copy of images and previews arrays
-        const orderedImages = [...images];
-        const orderedPreviews = [...imagePreviews];
-        
-        // If cover is not the first image, move it to the front
-        if (coverImageIndex > 0) {
-          // Move the cover image to the front
-          const coverImage = orderedImages.splice(coverImageIndex, 1)[0];
-          const coverPreview = orderedPreviews.splice(coverImageIndex, 1)[0];
-          
-          orderedImages.unshift(coverImage);
-          orderedPreviews.unshift(coverPreview);
-        }
-        
-        // Append images in the correct order
-        orderedImages.forEach(image => {
-          propertyData.append('images', image);
-        });
-      } else {
-        // Append images normally
-        images.forEach(image => {
-          propertyData.append('images', image);
-        });
-      }
+      // Prepare property data for submission
+      const propertyData = {
+        ...formData,
+        price: Number(formData.price),
+        deposit: Number(formData.deposit),
+        bedrooms: Number(formData.bedrooms),
+        bathrooms: Number(formData.bathrooms),
+        area: Number(formData.area),
+        amenities: selectedAmenities,
+        images: uploadedImageUrls
+      };
 
-      // Add upload progress tracking
-      const response = await api.post('/properties', propertyData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const { loaded, total } = progressEvent;
-          const percent = Math.round((loaded * 100) / total);
-          setUploadProgress(percent);
-        }
-      });
+      // Submit to API
+      const response = await api.post('/properties', propertyData);
       
       toast.success('Property posted successfully!');
       // Redirect to browse properties instead of property details page
