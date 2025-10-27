@@ -119,7 +119,20 @@ exports.register = asyncHandler(async (req, res, next) => {
       user.otpExpires = undefined;
       await user.save({ validateBeforeSave: false });
 
-      return next(new ErrorResponse('Email could not be sent', 500));
+      // Provide more helpful error message to the user
+      let errorMessage = 'Registration successful but we could not send the verification email. Please try the resend OTP option.';
+      if (err.message.includes('timeout')) {
+        errorMessage = 'Registration successful but we experienced a delay sending your verification email. Please try the resend OTP option.';
+      } else if (err.message.includes('authentication')) {
+        errorMessage = 'Registration successful but we had an authentication issue with our email service. Please contact support.';
+      }
+      
+      return res.status(201).json({
+        success: true,
+        message: errorMessage,
+        userId: user._id,
+        emailSendError: true
+      });
     }
   // }
 });
@@ -247,6 +260,19 @@ exports.verifyEmailWithOTP = asyncHandler(async (req, res, next) => {
   } catch (err) {
     console.error('Error sending temporary password email:', err);
     // Don't fail the verification if email sending fails
+    // But notify the client that email sending failed
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully. We could not send the temporary password email. Please use the forgot password feature if needed.',
+      token: user.getSignedJwtToken(),
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      },
+      emailSendError: true
+    });
+    return;
   }
 
   // Send token response to automatically log in the user
@@ -438,7 +464,12 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     user.tempPasswordExpires = undefined;
     await user.save({ validateBeforeSave: false });
 
-    return next(new ErrorResponse('Email could not be sent', 500));
+    // Provide a more graceful fallback
+    return res.status(200).json({ 
+      success: true, 
+      data: 'We could not send the temporary password email. Please use the resend option or contact support.',
+      emailSendError: true
+    });
   }
 });
 
