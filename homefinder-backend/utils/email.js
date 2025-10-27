@@ -1,15 +1,46 @@
-const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
+const nodemailer = require('nodemailer');
+const { google } = require('googleapis');
 
-// Simple transporter configuration like laundry app
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER || 'rentifyyourhome@gmail.com',
-        pass: process.env.EMAIL_PASS || 'qmnmauzjbwmbfyjc'
-    }
-});
+// Load environment variables
+require('dotenv').config({ path: path.resolve(__dirname, '..', 'config', 'config.env') });
+
+// Gmail OAuth2 configuration (primary service)
+let oauth2Client = null;
+let transporter = null;
+
+// Check if Gmail credentials are available and configure Gmail service
+if (process.env.GMAIL_EMAIL && process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN) {
+  try {
+    oauth2Client = new google.auth.OAuth2(
+      process.env.GMAIL_CLIENT_ID,
+      process.env.GMAIL_CLIENT_SECRET,
+      process.env.GMAIL_REDIRECT_URI || "https://developers.google.com/oauthplayground"
+    );
+    
+    oauth2Client.setCredentials({
+      refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+    });
+    
+    transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        type: "OAuth2",
+        user: process.env.GMAIL_EMAIL,
+        clientId: process.env.GMAIL_CLIENT_ID,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET,
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+      },
+    });
+    
+    console.log('Gmail OAuth2 email service configured as primary');
+  } catch (error) {
+    console.error('Failed to configure Gmail OAuth2:', error.message);
+  }
+} else {
+  console.log('Gmail OAuth2 credentials not found in environment variables');
+}
 
 // Load email template
 const loadTemplate = (templateName, variables = {}) => {
@@ -17,10 +48,22 @@ const loadTemplate = (templateName, variables = {}) => {
     const templatePath = path.join(__dirname, '..', 'emails', `${templateName}.html`);
     let template = fs.readFileSync(templatePath, 'utf8');
     
-    // Replace variables in template
+    // Replace variables in template with sanitized values to prevent injection
     Object.keys(variables).forEach(key => {
+      // Sanitize variable values to prevent template injection
+      let sanitizedValue = variables[key];
+      if (typeof sanitizedValue === 'string') {
+        // Escape HTML special characters
+        sanitizedValue = sanitizedValue
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#x27;');
+      }
+      
       const regex = new RegExp(`{{${key}}}`, 'g');
-      template = template.replace(regex, variables[key]);
+      template = template.replace(regex, sanitizedValue);
     });
     
     return template;
@@ -30,7 +73,7 @@ const loadTemplate = (templateName, variables = {}) => {
   }
 };
 
-// Send email (simplified approach like laundry app)
+// Send email using Gmail OAuth2 (primary service)
 const sendEmail = async (options) => {
   console.log('=== EMAIL SENDING ATTEMPT ===');
   console.log('To:', options.email);
@@ -43,42 +86,104 @@ const sendEmail = async (options) => {
     return { success: true, messageId: 'test-message-id' };
   }
   
-  const mailOptions = {
-    from: process.env.FROM_EMAIL || 'Homefinder <rentifyyourhome@gmail.com>',
-    to: options.email,
-    subject: options.subject,
-    html: options.html
-  };
-
-  // Send mail with retry logic (same approach as laundry app)
-  return new Promise((resolve) => {
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    const sendAttempt = () => {
-      attempts++;
-      console.log(`Email sending attempt ${attempts}/${maxAttempts}`);
+  // If Gmail is configured, use it
+  if (oauth2Client) {
+    try {
+      // Get fresh access token
+      const accessToken = await oauth2Client.getAccessToken();
       
-      transporter.sendMail(mailOptions, function(error, info) {
-        if (error) {
-          console.error(`Email sending failed (attempt ${attempts}):`, error);
-          
-          // Retry if we haven't exceeded max attempts
-          if (attempts < maxAttempts && (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET')) {
-            console.log(`Retrying email send in ${attempts * 1000}ms...`);
-            setTimeout(sendAttempt, attempts * 1000); // Exponential backoff
-          } else {
-            resolve({ success: false, error: error.message });
-          }
-        } else {
-          console.log('Email sent successfully: ' + info.response);
-          resolve({ success: true, messageId: info.messageId });
-        }
+      // Create fresh transporter with access token (matching gmail-api-master pattern)
+      const freshTransporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          type: "OAuth2",
+          user: process.env.GMAIL_EMAIL,
+          clientId: process.env.GMAIL_CLIENT_ID,
+          clientSecret: process.env.GMAIL_CLIENT_SECRET,
+          refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+          accessToken: accessToken.token || accessToken,
+        },
       });
-    };
-    
-    sendAttempt();
-  });
+      
+      const mailOptions = {
+        from: `Homefinder <${process.env.GMAIL_EMAIL}>`,
+        to: options.email,
+        subject: options.subject,
+        html: options.html || '<p>No content provided</p>',
+      };
+      
+      const info = await freshTransporter.sendMail(mailOptions);
+      console.log('Email sent successfully via Gmail:', info.messageId);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error('=== GMAIL SENDING ERROR DETAILS ===');
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      // Log additional error details if available
+      if (error.response) {
+        console.error('Error response:', error.response);
+      }
+      if (error.code) {
+        console.error('Error code:', error.code);
+      }
+      if (error.command) {
+        console.error('Error command:', error.command);
+      }
+      
+      // Check for token revoked errors
+      if (error.message && (error.message.includes('invalid_grant') || error.message.includes('Token has been revoked'))) {
+        console.error('OAuth token has been revoked. Please ensure proper OAuth setup with access_type=offline');
+        return { 
+          success: false, 
+          error: 'OAuth token has been revoked. Please ensure proper OAuth setup with access_type=offline',
+          errorCode: 'TOKEN_REVOKED',
+          errorDetails: {
+            name: error.name,
+            message: error.message,
+            code: error.code
+          }
+        };
+      }
+      
+      // Check for deleted client errors
+      if (error.message && (error.message.includes('deleted_client') || error.code === 401)) {
+        console.error('OAuth client has been deleted or deactivated. Please recreate the OAuth credentials in Google Cloud Console.');
+        return { 
+          success: false, 
+          error: 'The email service is currently unavailable due to invalid credentials. Please contact support to resolve this issue.',
+          errorCode: 'DELETED_CLIENT',
+          errorDetails: {
+            name: error.name,
+            message: error.message,
+            code: error.code
+          }
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: error.message,
+        errorCode: error.name,
+        errorDetails: {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+          stack: error.stack
+        }
+      };
+    }
+  }
+  
+  // If no email service is configured, fall back to console logging
+  console.log('No email service configured, logging email content instead');
+  console.log('Email content:', options.html);
+  return { 
+    success: true, 
+    messageId: 'no-email-service-configured',
+    warning: 'Email service not configured - using development fallback'
+  };
 };
 
 module.exports = {
