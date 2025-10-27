@@ -22,6 +22,7 @@ const EditProperty = () => {
     title: '',
     description: '',
     price: '',
+    deposit: '', // Add deposit field
     location: '',
     city: '',
     propertyType: '',
@@ -91,6 +92,7 @@ const EditProperty = () => {
         title: property.title != null ? String(property.title) : '',
         description: property.description != null ? String(property.description) : '',
         price: property.price != null ? String(property.price) : '',
+        deposit: property.deposit != null ? String(property.deposit) : '', // Add deposit field
         location: property.location != null ? String(property.location) : '',
         city: property.city != null ? String(property.city) : '',
         propertyType: property.propertyType != null ? String(property.propertyType) : '',
@@ -104,6 +106,7 @@ const EditProperty = () => {
         title: property.title != null ? String(property.title) : '',
         description: property.description != null ? String(property.description) : '',
         price: property.price != null ? String(property.price) : '',
+        deposit: property.deposit != null ? String(property.deposit) : '', // Add deposit field
         location: property.location != null ? String(property.location) : '',
         city: property.city != null ? String(property.city) : '',
         propertyType: property.propertyType != null ? String(property.propertyType) : '',
@@ -278,105 +281,119 @@ const EditProperty = () => {
     );
   };
 
+  const uploadImageToCloudinary = async (imageFile) => {
+    const formData = new FormData();
+    formData.append('file', imageFile);
+    formData.append('upload_preset', 'first_time_upload'); // Your upload preset
+    
+    try {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/dz7mjfzaw/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      if (data.secure_url) {
+        return data.secure_url;
+      } else {
+        throw new Error('Failed to upload image to Cloudinary');
+      }
+    } catch (error) {
+      console.error('Error uploading to Cloudinary:', error);
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (submitting) return;
+    
+    // Validate required fields including deposit
+    if (!formData.title || !formData.description || !formData.price || 
+        !formData.deposit || !formData.location || !formData.city || 
+        !formData.propertyType || !formData.bedrooms || !formData.bathrooms || 
+        !formData.area || !formData.furnishing) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    // Validate numeric fields
+    const price = Number(formData.price);
+    const deposit = Number(formData.deposit);
+    const bedrooms = Number(formData.bedrooms);
+    const bathrooms = Number(formData.bathrooms);
+    const area = Number(formData.area);
+    
+    if (isNaN(price) || isNaN(deposit) || isNaN(bedrooms) || isNaN(bathrooms) || isNaN(area)) {
+      toast.error('Please enter valid numbers for price, deposit, bedrooms, bathrooms, and area');
+      return;
+    }
+    
+    if (price <= 0 || deposit <= 0 || bedrooms <= 0 || bathrooms <= 0 || area <= 0) {
+      toast.error('Price, deposit, bedrooms, bathrooms, and area must be greater than zero');
+      return;
+    }
+    
+    // Validate amenities
+    if (amenities.length === 0) {
+      toast.error('Please select at least one amenity');
+      return;
+    }
+    
+    // Validate images
+    const hasExistingImages = existingImages.length > 0;
+    const hasNewImages = images.length > 0;
+    
+    if (!hasExistingImages && !hasNewImages) {
+      toast.error('Please upload at least one image');
+      return;
+    }
+    
     setSubmitting(true);
     
     try {
-      // Prepare form data for submission
-      const propertyData = new FormData();
+      // Handle new image uploads to Cloudinary
+      let uploadedImageUrls = [];
       
-      // Append text fields with proper data types
-      Object.keys(formData).forEach(key => {
-        if (key === 'price' || key === 'bedrooms' || key === 'bathrooms' || key === 'area') {
-          // Convert numeric fields to numbers
-          const value = formData[key];
-          if (value !== '') {
-            propertyData.append(key, Number(value));
-          }
-        } else {
-          // Append other fields as strings
-          propertyData.append(key, formData[key]);
-        }
-      });
-      
-      // Append amenities (required field)
-      if (amenities.length > 0) {
-        amenities.forEach(amenity => {
-          propertyData.append('amenities', amenity);
-        });
-      } else {
-        // Add a default amenity if none selected
-        propertyData.append('amenities', 'Basic');
-      }
-      
-      // Create a combined array of all images in the correct order
-      const allImages = [...existingImages, ...imagePreviews];
-      
-      // If we have images and more than one, ensure the cover image is first
-      if (allImages.length > 1) {
-        // Reorder images so the cover image is first
-        const reorderedImages = [...allImages];
-        const coverImage = reorderedImages[coverImageIndex];
-        reorderedImages.splice(coverImageIndex, 1);
-        reorderedImages.unshift(coverImage);
-        
-        // For existing images, we need to send them in the correct order
-        // For new images, they will be appended in the correct order
-        const existingImagesInOrder = [];
-        const newImagesInOrder = [];
-        const newImageFiles = [];
-        
-        reorderedImages.forEach((image, index) => {
-          // Check if this is an existing image (URL) or new image (preview)
-          if (existingImages.includes(image)) {
-            existingImagesInOrder.push(image);
-          } else {
-            // Find the corresponding file for this preview
-            const previewIndex = imagePreviews.indexOf(image);
-            if (previewIndex !== -1 && previewIndex < images.length) {
-              newImagesInOrder.push(image);
-              newImageFiles.push(images[previewIndex]);
-            }
-          }
-        });
-        
-        // Append existing images in the correct order
-        existingImagesInOrder.forEach(image => {
-          propertyData.append('existingImages', image);
-        });
-        
-        // Append new images in the correct order
-        newImageFiles.forEach(image => {
-          propertyData.append('images', image);
-        });
-      } else {
-        // Append new images
-        images.forEach(image => {
-          propertyData.append('images', image);
-        });
-        
-        // If existing images were not removed, we need to indicate this
-        // We'll send the current existing images list
-        if (existingImages.length > 0) {
-          existingImages.forEach(image => {
-            propertyData.append('existingImages', image);
-          });
+      if (images.length > 0) {
+        try {
+          // Upload all new images to Cloudinary
+          const uploadPromises = images.map(image => uploadImageToCloudinary(image));
+          uploadedImageUrls = await Promise.all(uploadPromises);
+        } catch (uploadError) {
+          console.error('Error uploading images to Cloudinary:', uploadError);
+          toast.error('Error uploading images. Please try again.');
+          setSubmitting(false);
+          return;
         }
       }
+      
+      // Combine existing images with newly uploaded images
+      const allImageUrls = [...existingImages, ...uploadedImageUrls];
+      
+      // Prepare property data for submission
+      const propertyData = {
+        ...formData,
+        price: Number(formData.price),
+        deposit: Number(formData.deposit),
+        bedrooms: Number(formData.bedrooms),
+        bathrooms: Number(formData.bathrooms),
+        area: Number(formData.area),
+        amenities: amenities,
+        images: allImageUrls
+      };
       
       // Submit to API
-      const response = await api.put(`/properties/${id}`, propertyData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      const response = await api.put(`/properties/${id}`, propertyData);
       
       toast.success('Property updated successfully!');
       navigate('/my-properties');
     } catch (error) {
       console.error('Error updating property:', error);
-      toast.error('Error updating property. Please try again.');
+      // Show more detailed error message
+      const errorMessage = error.response?.data?.message || error.message || 'Error updating property. Please try again.';
+      toast.error(`Error: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }
@@ -459,6 +476,30 @@ const EditProperty = () => {
                     value={formData.price}
                     onChange={handleInputChange}
                     placeholder="Enter monthly rent"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Security Deposit (₹)</label>
+                  <Input
+                    name="deposit"
+                    type="number"
+                    value={formData.deposit}
+                    onChange={handleInputChange}
+                    placeholder="Enter security deposit"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Area (sq ft)</label>
+                  <Input
+                    name="area"
+                    type="number"
+                    value={formData.area}
+                    onChange={handleInputChange}
+                    placeholder="Enter area in sq ft"
                     required
                   />
                 </div>
@@ -576,18 +617,6 @@ const EditProperty = () => {
                       <SelectItem value="4">4+ Bathrooms</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Area (sq ft)</label>
-                  <Input
-                    name="area"
-                    type="number"
-                    value={formData.area}
-                    onChange={handleInputChange}
-                    placeholder="Enter area in sq ft"
-                    required
-                  />
                 </div>
                 
                 <div>
