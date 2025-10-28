@@ -179,17 +179,6 @@ const Header = () => {
             <div className="pt-4 border-t">
               {isAuthenticated ? (
                 <div className="flex flex-col gap-2">
-                  <Link to="/chat" className="relative" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full justify-start flex items-center gap-2">
-                      <MessageCircle className="h-4 w-4" />
-                      Messages
-                      {unreadCount > 0 && (
-                        <span className="absolute top-2 right-3 bg-destructive text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </Button>
-                  </Link>
                   <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="ghost" className="w-full justify-start flex items-center gap-2">
                       <User className="h-4 w-4" />
