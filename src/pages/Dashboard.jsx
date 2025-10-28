@@ -25,49 +25,23 @@ const Dashboard = () => {
     try {
       setLoading(true);
       
-      // Fetch user's properties
-      const propertiesResponse = await api.get('/properties');
-      console.log('All properties:', propertiesResponse.data.data);
-      console.log('User ID:', user?.id);
+      // Fetch user's properties using the dedicated endpoint
+      const propertiesResponse = await api.get('/properties/my-properties');
+      console.log('User properties:', propertiesResponse.data.data);
       
-      const userProperties = propertiesResponse.data.data.filter(
-        property => {
-          // Handle different ID formats
-          const ownerId = property.owner?._id || property.owner;
-          // Ensure user and user.id exist before comparison
-          if (!user || !user.id) return false;
-          const isOwner = ownerId && (
-            ownerId === user.id || 
-            ownerId.toString() === user.id || 
-            (user.id.toString && ownerId.toString() === user.id.toString())
-          );
-          console.log('Property owner ID:', ownerId, 'User ID:', user.id, 'Is owner:', isOwner);
-          return isOwner;
-        }
-      );
+      const userProperties = propertiesResponse.data.data || [];
       
-      console.log('User properties:', userProperties);
+      // Fetch user's bookings using the dedicated endpoint
+      const bookingsResponse = await api.get('/bookings/my-bookings');
+      console.log('User bookings:', bookingsResponse.data.data);
       
-      // Fetch user's bookings
-      const bookingsResponse = await api.get('/bookings');
-      const userBookings = bookingsResponse.data.data.filter(
-        booking => {
-          // Handle different ID formats for tenant
-          const tenantId = booking.tenant?._id || booking.tenant;
-          // Ensure user and user.id exist before comparison
-          if (!user || !user.id) return false;
-          return tenantId && (
-            tenantId === user.id || 
-            tenantId.toString() === user.id || 
-            (user.id.toString && tenantId.toString() === user.id.toString())
-          );
-        }
-      );
+      const userBookings = bookingsResponse.data.data || [];
       
       setProperties(userProperties);
       setBookings(userBookings);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
