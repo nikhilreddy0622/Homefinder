@@ -291,48 +291,25 @@ exports.verifyEmailWithOTP = asyncHandler(async (req, res, next) => {
       return res.status(200).json({
         success: true,
         message: 'Email verified successfully. We could not send the temporary password email due to a service issue. Please use the forgot password feature or contact support.',
-        token: user.getSignedJwtToken(),
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email
-        },
         emailSendError: true
       });
     }
     
     console.log('Temporary password email sent to:', user.email);
     
-    // Send success response
-    res.status(200).json({
-      success: true,
-      message: 'Email verified successfully. Temporary password has been sent to your email.',
-      token: user.getSignedJwtToken(),
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email
-      }
-    });
+    // Send token response to automatically log in the user
+    console.log('Sending token response for user:', email);
+    sendTokenResponse(user, 200, res);
+    return;
   } catch (err) {
     console.error('Unexpected error sending temporary password email:', err);
     // Don't fail the verification if email sending fails
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Email verified successfully. We could not send the temporary password email due to a service issue. Please use the forgot password feature or contact support.',
-      token: user.getSignedJwtToken(),
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email
-      },
       emailSendError: true
     });
   }
-
-  // Send token response to automatically log in the user
-  console.log('Sending token response for user:', email);
-  sendTokenResponse(user, 200, res);
 });
 
 // @desc    Login user
