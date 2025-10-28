@@ -40,3 +40,119 @@ body {
   font-weight: 400;
   line-height: 1.6;
 }
+
+/* Mobile-specific chat improvements */
+@media (max-width: 767px) {
+  /* Ensure chat input area is properly positioned above keyboard */
+  .chat-input-area {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 1rem;
+    border-top: 1px solid hsl(var(--border));
+    z-index: 10;
+  }
+  
+  /* Prevent chat messages from being hidden behind input on mobile */
+  .chat-messages-container {
+    padding-bottom: 80px; /* Space for input area */
+  }
+  
+  /* Ensure proper scrolling behavior on mobile */
+  .mobile-scrollable {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Optimize message bubbles for mobile touch */
+  .message-bubble {
+    max-width: 80%;
+    padding: 0.75rem 1rem;
+  }
+  
+  /* Improve conversation list items for mobile touch targets */
+  .conversation-item {
+    min-height: 72px;
+    padding: 1rem;
+  }
+  
+  /* Ensure proper text truncation on mobile */
+  .conversation-title,
+  .conversation-property,
+  .conversation-role {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  /* Adjust avatar sizing for mobile */
+  .chat-avatar {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+  
+  /* Improve empty state messaging */
+  .empty-conversations {
+    padding: 2rem;
+    text-align: center;
+  }
+}
+
+/* Large screen improvements */
+@media (min-width: 1280px) {
+  /* Ensure proper spacing between conversation list and chat area */
+  .conversation-sidebar {
+    min-width: 20rem;
+    max-width: 24rem;
+  }
+  
+  /* Give more space to message content on large screens */
+  .message-content-area {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  /* Increase max width of message bubbles on large screens */
+  .message-bubble {
+    max-width: 70%;
+  }
+}
+
+/* Improve chat message readability */
+.message-content {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* Ensure proper sizing for chat avatars */
+.chat-avatar {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+}
+
+/* Improve conversation item styling */
+.conversation-item {
+  transition: background-color 0.2s ease;
+}
+
+/* Ensure proper text wrapping */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Add subtle shadow to separate conversation list from chat area on large screens */
+.conversation-sidebar {
+  box-shadow: 1px 0 0 0 hsl(var(--border));
+}
+
+/* Adjust conversation sidebar positioning */
+@media (min-width: 768px) {
+  .conversation-sidebar {
+    margin-right: 1rem;
+    padding-right: 0.5rem;
+  }
+}
