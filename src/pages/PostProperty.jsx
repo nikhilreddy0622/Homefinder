@@ -177,22 +177,50 @@ const PostProperty = () => {
           const { latitude, longitude } = position.coords;
           
           try {
-            const response = await api.post('/utils/geocode/reverse', {
-              lat: latitude,
-              lon: longitude
-            });
+            // Use a more detailed reverse geocoding approach
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&zoom=18`,
+              {
+                headers: {
+                  'User-Agent': 'Homefinder-App/1.0'
+                }
+              }
+            );
             
-            if (response.data.success) {
-              const address = response.data.address;
+            const data = await response.json();
+            
+            if (data && data.address) {
+              // More detailed address extraction
+              const addressParts = data.address;
               
-              // Improved address extraction for better accuracy
-              const location = address.street && address.street.trim() !== '' 
-                ? address.street 
-                : address.full || 'Unknown location';
+              // Try to get the most specific location information
+              let location = '';
+              if (addressParts.neighbourhood) {
+                location = addressParts.neighbourhood;
+              } else if (addressParts.suburb) {
+                location = addressParts.suburb;
+              } else if (addressParts.city_district) {
+                location = addressParts.city_district;
+              } else if (addressParts.road) {
+                location = addressParts.road;
+              } else {
+                // Fallback to full address if no specific parts found
+                location = data.display_name || 'Unknown location';
+              }
               
-              const city = address.city && address.city.trim() !== '' 
-                ? address.city 
-                : address.state || 'Unknown city';
+              // Get city with better fallback logic
+              let city = '';
+              if (addressParts.city) {
+                city = addressParts.city;
+              } else if (addressParts.town) {
+                city = addressParts.town;
+              } else if (addressParts.village) {
+                city = addressParts.village;
+              } else {
+                // Try to extract city from display_name as last resort
+                const displayNameParts = data.display_name.split(',');
+                city = displayNameParts[0] || 'Unknown city';
+              }
               
               setFormData(prev => ({
                 ...prev,
@@ -217,8 +245,8 @@ const PostProperty = () => {
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
+          timeout: 15000,
+          maximumAge: 60000
         }
       );
     } catch (error) {
