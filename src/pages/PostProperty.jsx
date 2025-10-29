@@ -184,10 +184,20 @@ const PostProperty = () => {
             
             if (response.data.success) {
               const address = response.data.address;
+              
+              // Improved address extraction for better accuracy
+              const location = address.street && address.street.trim() !== '' 
+                ? address.street 
+                : address.full || 'Unknown location';
+              
+              const city = address.city && address.city.trim() !== '' 
+                ? address.city 
+                : address.state || 'Unknown city';
+              
               setFormData(prev => ({
                 ...prev,
-                location: address.street || address.full,
-                city: address.city || ''
+                location: location,
+                city: city
               }));
               toast.success('Location detected successfully!');
             } else {
