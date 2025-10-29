@@ -255,29 +255,49 @@ const PostProperty = () => {
       return;
     }
 
-    // Validate that all required fields are filled
-    if (!formData.title || !formData.description || !formData.price || 
-        !formData.deposit || !formData.location || !formData.city || 
-        !formData.propertyType || !formData.bedrooms || !formData.bathrooms || 
-        !formData.area || !formData.furnishing || !formData.availableFrom) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    // Validate numeric fields
-    const price = Number(formData.price);
-    const deposit = Number(formData.deposit);
-    const bedrooms = Number(formData.bedrooms);
-    const bathrooms = Number(formData.bathrooms);
-    const area = Number(formData.area);
+    // Enhanced validation that properly checks for empty/whitespace values
+    const requiredFields = [
+      'title', 'description', 'price', 'deposit', 'location', 
+      'city', 'propertyType', 'bedrooms', 'bathrooms', 'area', 
+      'furnishing', 'availableFrom'
+    ];
     
-    if (isNaN(price) || isNaN(deposit) || isNaN(bedrooms) || isNaN(bathrooms) || isNaN(area)) {
-      toast.error('Please enter valid numbers for price, deposit, bedrooms, bathrooms, and area');
+    const emptyFields = requiredFields.filter(field => {
+      const value = formData[field];
+      // Check for undefined, null, or empty/whitespace strings
+      return value === undefined || value === null || 
+             (typeof value === 'string' && value.trim() === '');
+    });
+    
+    if (emptyFields.length > 0) {
+      toast.error('Please fill in all required fields');
+      console.log('Empty fields:', emptyFields);
       return;
     }
 
-    if (price <= 0 || deposit <= 0 || bedrooms <= 0 || bathrooms <= 0 || area <= 0) {
-      toast.error('Price, deposit, bedrooms, bathrooms, and area must be greater than zero');
+    // Validate numeric fields are actually numbers and positive
+    const numericFields = ['price', 'deposit', 'bedrooms', 'bathrooms', 'area'];
+    const invalidNumbers = numericFields.filter(field => {
+      const numValue = Number(formData[field]);
+      return isNaN(numValue) || numValue <= 0;
+    });
+    
+    if (invalidNumbers.length > 0) {
+      toast.error('Please enter valid positive numbers for price, deposit, bedrooms, bathrooms, and area');
+      return;
+    }
+
+    // Validate select fields have valid values
+    const propertyTypes = ['apartment', 'house', 'villa', 'studio', 'condo', 'townhouse'];
+    const furnishingOptions = ['furnished', 'semi-furnished', 'unfurnished'];
+    
+    if (!propertyTypes.includes(formData.propertyType)) {
+      toast.error('Please select a valid property type');
+      return;
+    }
+    
+    if (!furnishingOptions.includes(formData.furnishing)) {
+      toast.error('Please select a valid furnishing option');
       return;
     }
 
@@ -310,7 +330,7 @@ const PostProperty = () => {
         uploadedImageUrls = [coverImage, ...remainingImages];
       }
       
-      // Prepare property data for submission
+      // Prepare property data for submission with proper type conversion
       const propertyData = {
         ...formData,
         price: Number(formData.price),
